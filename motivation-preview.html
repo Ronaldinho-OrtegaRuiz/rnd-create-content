@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Motivation — vista previa</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #111;
+        --card: #1a1a1a;
+        --border: #333;
+        --muted: #888;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: var(--bg);
+        color: #eee;
+        padding: 1.5rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 1rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+        align-items: start;
+      }
+      figure {
+        margin: 0;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      figcaption {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+        border-top: 1px solid var(--border);
+      }
+      figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+        vertical-align: middle;
+      }
+      figure.cover {
+        grid-column: 1 / -1;
+        max-width: 100%;
+      }
+      figure.cover img {
+        max-height: 320px;
+        object-fit: contain;
+        background: #000;
+      }
+      .hint {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Motivation — profile, cover y estilos</h1>
+    <p class="hint">
+      Las mismas imágenes siguen en <a href="preview.html">preview.html</a>.
+      Ejecuta <code>npm run generate-images</code> si no ves las imágenes.
+    </p>
+    <div class="grid">
+      <figure>
+        <img src="generated/profile_photo.png" alt="profile_photo" />
+        <figcaption>profile_photo</figcaption>
+      </figure>
+      <figure class="cover">
+        <img src="generated/cover_photo.png" alt="cover_photo" />
+        <figcaption>cover_photo (más ancha)</figcaption>
+      </figure>
+      <figure>
+        <img src="generated/style_hook.png" alt="style_hook" />
+        <figcaption>style_hook (estilo profile/cover)</figcaption>
+      </figure>
+      <figure>
+        <img src="generated/style_short.png" alt="style_short" />
+        <figcaption>style_short (estilo profile/cover)</figcaption>
+      </figure>
+      <figure>
+        <img src="generated/style_extra_value.png" alt="style_extra_value" />
+        <figcaption>style_extra_value (estilo profile/cover)</figcaption>
+      </figure>
+    </div>
+  </body>
+</html>

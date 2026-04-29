@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Salida del generador (regenerar con npm run generate-images)
+generated/
+
+# Secrets / entorno local
+.env
+.env.*
+!.env.example
+
+# Logs y debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor (opcional; quita si quieres versionar ajustes del proyecto)
+.idea/
+*.swp
+*.swo

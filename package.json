@@ -1,0 +1,12 @@
+{
+  "name": "rnd-words",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-images": "node scripts/generate-images.mjs"
+  },
+  "dependencies": {
+    "opentype.js": "^1.3.4",
+    "sharp": "^0.33.5"
+  }
+}
