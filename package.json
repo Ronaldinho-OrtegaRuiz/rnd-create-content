@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate-images": "node scripts/generate-images.mjs"
+    "generate-images": "node scripts/generate-images.mjs",
+    "start": "node server.mjs"
   },
   "dependencies": {
+    "dotenv": "^16.4.7",
     "opentype.js": "^1.3.4",
     "sharp": "^0.33.5"
   }
