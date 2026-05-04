@@ -1,13 +1,17 @@
 import sharp from "sharp";
-import { mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { log } from "../log.mjs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { log, logErr } from "../log.mjs";
 import { dirname, join } from "node:path";
+import ffmpegStatic from "ffmpeg-static";
 import { fileURLToPath } from "node:url";
 import opentype from "opentype.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = join(__dirname, "..", "..");
+const repoRoot = join(__dirname, "..", "..", "..");
 const outDir = join(repoRoot, "generated");
 const orbitronPath = join(repoRoot, "fonts", "Orbitron", "Orbitron-VariableFont_wght.ttf");
 const orbitronFont = await opentype.load(orbitronPath);
@@ -895,6 +899,18 @@ const specs = [
     overlay: svgBuffer(1280, 400, coverOverlay()),
   },
   {
+    id: "profile_photo_preview",
+    width: 512,
+    height: 512,
+    overlay: svgBuffer(512, 512, profileOverlayPreview()),
+  },
+  {
+    id: "cover_photo_preview",
+    width: 1280,
+    height: 400,
+    overlay: svgBuffer(1280, 400, coverOverlayPreview()),
+  },
+  {
     id: "style_hook",
     width: HOOK_W,
     height: HOOK_H,
@@ -1009,6 +1025,122 @@ export async function renderDynamicContentPack({ word, description, extra, highl
   };
 }
 
+/** Binario embebido (`ffmpeg-static`) o `ffmpeg` del PATH como respaldo */
+function resolveFfmpegBinary() {
+  if (typeof ffmpegStatic === "string" && ffmpegStatic.length > 0 && existsSync(ffmpegStatic)) {
+    return ffmpegStatic;
+  }
+  return "ffmpeg";
+}
+
+/**
+ * Las tres tarjetas PNG que devuelve `renderDynamicContentPack` (Gemini + categoría).
+ * @param {[Buffer, Buffer, Buffer]} pngBuffers hook, short_definition, extra_value
+ * @returns {Promise<Buffer | null>} MP4 o null si ffmpeg falla
+ */
+export async function buildSlideshowMp4FromPngBuffers(pngBuffers) {
+  if (!Array.isArray(pngBuffers) || pngBuffers.length !== 3) {
+    return null;
+  }
+  const ffmpegBin = resolveFfmpegBinary();
+  const probe = spawnSync(ffmpegBin, ["-hide_banner", "-version"], { encoding: "utf8" });
+  if (probe.error || probe.status !== 0) {
+    logErr(
+      "[rnd-word] ffmpeg no disponible (binario embebido ni PATH): vídeo omitido.",
+      probe.stderr?.slice(0, 300) || probe.error?.message || "",
+    );
+    return null;
+  }
+
+  const d1 = 2;
+  const d2 = 3;
+  const d3 = 3;
+  const f = 0.5;
+  const W = 1280;
+  const H = 720;
+  const offset1 = d1 - f;
+  const v01Duration = d1 + d2 - f;
+  const offset2 = v01Duration - f;
+  const scale = `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,format=yuv420p,setsar=1,fps=30`;
+  const filter = [
+    `[0:v]${scale}[v0]`,
+    `[1:v]${scale}[v1]`,
+    `[2:v]${scale}[v2]`,
+    `[v0][v1]xfade=transition=fade:duration=${f}:offset=${offset1}[v01]`,
+    `[v01][v2]xfade=transition=fade:duration=${f}:offset=${offset2}[vout]`,
+  ].join(";");
+
+  let workDir;
+  try {
+    workDir = await mkdtemp(join(tmpdir(), "rnd-words-slideshow-"));
+    const p0 = join(workDir, "0.png");
+    const p1 = join(workDir, "1.png");
+    const p2 = join(workDir, "2.png");
+    const outPath = join(workDir, "out.mp4");
+    await writeFile(p0, pngBuffers[0]);
+    await writeFile(p1, pngBuffers[1]);
+    await writeFile(p2, pngBuffers[2]);
+
+    const args = [
+      "-hide_banner",
+      "-y",
+      "-loop",
+      "1",
+      "-t",
+      String(d1),
+      "-i",
+      p0,
+      "-loop",
+      "1",
+      "-t",
+      String(d2),
+      "-i",
+      p1,
+      "-loop",
+      "1",
+      "-t",
+      String(d3),
+      "-i",
+      p2,
+      "-filter_complex",
+      filter,
+      "-map",
+      "[vout]",
+      "-an",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium",
+      "-crf",
+      "20",
+      "-pix_fmt",
+      "yuv420p",
+      "-movflags",
+      "+faststart",
+      outPath,
+    ];
+    const run = spawnSync(ffmpegBin, args, { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 });
+    if (run.error) {
+      logErr("[rnd-word] ffmpeg:", run.error.message);
+      return null;
+    }
+    if (run.status !== 0) {
+      logErr("[rnd-word] ffmpeg:", run.stderr?.slice(-2500) || run.stdout);
+      return null;
+    }
+    const mp4 = await readFile(outPath);
+    log(
+      "[rnd-word] vídeo listo |",
+      `hook→short→extra | ${d1}s+${d2}s+${d3}s xfade=${f}s | ${mp4.length} bytes`,
+    );
+    return mp4;
+  } finally {
+    if (workDir) {
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+}
+
 export async function runStaticImageExport() {
   await mkdir(outDir, { recursive: true });
   for (const { id, width, height, overlay } of specs) {
@@ -1071,6 +1203,105 @@ function coverOverlay() {
 <g filter="url(#cvSoftGlow)">
   <path d="${d1}" fill="#FFFFFF" fill-rule="evenodd"/>
   <path d="${d2}" fill="#CFCFCF" fill-rule="evenodd"/>
+</g>
+`.trim();
+}
+
+/** Perfil “marca” para preview.html: halo sutil multicolor + RND con relleno y bloom ligero (motivation sigue en profile_photo clásico). */
+function profileOverlayPreview() {
+  const fontSize = 122;
+  const letterSpacing = 2 / fontSize;
+  const d = buildSpaceGroteskWordPathD("RND", 256, 256, fontSize, { letterSpacing });
+  return `
+<defs>
+  <radialGradient id="prvHalo" cx="50%" cy="50%" r="68%" gradientUnits="objectBoundingBox">
+    <stop offset="0%" stop-color="#39ff14" stop-opacity="0.125"/>
+    <stop offset="22%" stop-color="#00b8ff" stop-opacity="0.098"/>
+    <stop offset="44%" stop-color="#9333ea" stop-opacity="0.089"/>
+    <stop offset="66%" stop-color="#ff6b00" stop-opacity="0.071"/>
+    <stop offset="88%" stop-color="#ef4444" stop-opacity="0.054"/>
+    <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="prvLetter" x1="28%" y1="22%" x2="72%" y2="78%" gradientUnits="objectBoundingBox">
+    <stop offset="0%" stop-color="#ffffff"/>
+    <stop offset="52%" stop-color="#f1f5f9"/>
+    <stop offset="100%" stop-color="#cbd5e1"/>
+  </linearGradient>
+  <filter id="prvBloom" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="1.85" result="b"/>
+    <feFlood flood-color="#c5d3e8" flood-opacity="0.21" result="f"/>
+    <feComposite in="f" in2="b" operator="in" result="g"/>
+    <feMerge>
+      <feMergeNode in="g"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+</defs>
+<rect x="0" y="0" width="512" height="512" fill="url(#prvHalo)"/>
+<g filter="url(#prvBloom)">
+  <path d="${d}" fill="url(#prvLetter)" fill-rule="evenodd"/>
+</g>
+`.trim();
+}
+
+/** Portada “marca” para preview.html: negro + franja horizontal de marca + línea neón suave; copy con ritmo (motivation sin cambios). */
+function coverOverlayPreview() {
+  const cx = 640;
+  const y1 = 164;
+  const y2 = 246;
+  const font1 = 52;
+  const font2 = 48;
+  const d1 = buildSpaceGroteskWordPathD("New words. Daily.", cx, y1, font1, {
+    letterSpacing: 2.2 / font1,
+  });
+  const d2 = buildSpaceGroteskWordPathD("Concepts in seconds.", cx, y2, font2, {
+    letterSpacing: 2.6 / font2,
+  });
+  const lineY = 312;
+  return `
+<defs>
+  <linearGradient id="cvPrBand" x1="0" y1="200" x2="1280" y2="200" gradientUnits="userSpaceOnUse">
+    <stop offset="0%" stop-color="#000000"/>
+    <stop offset="14%" stop-color="#0c2418"/>
+    <stop offset="30%" stop-color="#0c2838"/>
+    <stop offset="48%" stop-color="#1a1240"/>
+    <stop offset="66%" stop-color="#281808"/>
+    <stop offset="84%" stop-color="#240c10"/>
+    <stop offset="100%" stop-color="#000000"/>
+  </linearGradient>
+  <linearGradient id="cvPrNeon" x1="120" y1="${lineY}" x2="1160" y2="${lineY}" gradientUnits="userSpaceOnUse">
+    <stop offset="0%" stop-color="#39ff14" stop-opacity="0"/>
+    <stop offset="18%" stop-color="#39ff14" stop-opacity="0.35"/>
+    <stop offset="36%" stop-color="#38bdf8" stop-opacity="0.55"/>
+    <stop offset="54%" stop-color="#a78bfa" stop-opacity="0.5"/>
+    <stop offset="72%" stop-color="#fdba74" stop-opacity="0.42"/>
+    <stop offset="90%" stop-color="#f87171" stop-opacity="0.35"/>
+    <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="cvPrNeonBlur" x="-5%" y="-200%" width="110%" height="500%">
+    <feGaussianBlur stdDeviation="5" result="blur"/>
+    <feMerge>
+      <feMergeNode in="blur"/>
+      <feMergeNode in="blur"/>
+    </feMerge>
+  </filter>
+  <filter id="cvPrTypeGlow" x="-8%" y="-40%" width="116%" height="180%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+    <feFlood flood-color="#ffffff" flood-opacity="0.18" result="flood"/>
+    <feComposite in="flood" in2="blur" operator="in" result="glow"/>
+    <feMerge>
+      <feMergeNode in="glow"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+</defs>
+<rect x="0" y="0" width="1280" height="400" fill="#000000"/>
+<rect x="0" y="0" width="1280" height="400" fill="url(#cvPrBand)" opacity="0.92"/>
+<line x1="100" y1="${lineY}" x2="1180" y2="${lineY}" stroke="url(#cvPrNeon)" stroke-width="10" stroke-linecap="round" opacity="0.22" filter="url(#cvPrNeonBlur)"/>
+<line x1="140" y1="${lineY}" x2="1140" y2="${lineY}" stroke="url(#cvPrNeon)" stroke-width="2.2" stroke-linecap="round" opacity="0.55"/>
+<g filter="url(#cvPrTypeGlow)">
+  <path d="${d1}" fill="#FFFFFF" fill-rule="evenodd"/>
+  <path d="${d2}" fill="#B8BCC8" fill-rule="evenodd"/>
 </g>
 `.trim();
 }

@@ -6,11 +6,11 @@ import { URL } from "node:url";
 
 const __root = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__root, ".env") });
-import { categories, categoryIds } from "./src/domain/categories.mjs";
-import { seedInputs } from "./src/domain/seed-inputs.mjs";
-import { contents } from "./src/domain/contents.mjs";
-import { log, logErr } from "./src/log.mjs";
-import { createContentFromInput } from "./src/services/content-generator.mjs";
+import { categories, categoryIds } from "./src/rnd-word/domain/categories.mjs";
+import { seedInputs } from "./src/rnd-word/domain/seed-inputs.mjs";
+import { contents } from "./src/rnd-word/domain/contents.mjs";
+import { log, logErr } from "./src/rnd-word/log.mjs";
+import { createContentFromInput } from "./src/rnd-word/services/content-generator.mjs";
 
 const PORT = Number(process.env.PORT) || 3001;
 const BASE = "/rnd-word";
@@ -152,6 +152,9 @@ const testPageHtml = `<!DOCTYPE html>
     .preview figure { margin: 0; }
     .preview figcaption { font-size: 0.75rem; color: #64748b; margin-bottom: 0.35rem; }
     .preview img { width: 100%; max-width: 360px; height: auto; border-radius: 10px; border: 1px solid #cbd5e1; display: block; margin: 0 auto; }
+    .preview-video-wrap { margin-top: 1rem; max-width: 100%; }
+    .preview-video-wrap video { width: 100%; max-width: min(720px, 100%); display: block; border-radius: 10px; border: 1px solid #cbd5e1; background: #000; margin: 0 auto; }
+    .preview-video-wrap .hint { font-size: 0.8rem; margin-top: 0.35rem; text-align: center; }
   </style>
 </head>
 <body>
@@ -180,9 +183,9 @@ const testPageHtml = `<!DOCTYPE html>
       const o = JSON.parse(JSON.stringify(data));
       if (o.images && typeof o.images === "object") {
         const im = o.images;
-        ["hook_base64", "short_definition_base64", "extra_value_base64"].forEach(function (k) {
-          if (typeof im[k] === "string") {
-            im[k] = "[base64 " + im[k].length + " chars, ver imagenes abajo]";
+        ["hook_base64", "short_definition_base64", "extra_value_base64", "video_base64"].forEach(function (k) {
+          if (typeof im[k] === "string" && im[k]) {
+            im[k] = "[base64 " + im[k].length + " chars, ver previsualizacion abajo]";
           }
         });
       }
@@ -227,13 +230,32 @@ const testPageHtml = `<!DOCTYPE html>
           var h = data.images.hook_base64;
           var s = data.images.short_definition_base64;
           var x = data.images.extra_value_base64;
+          var vid = data.images.video_base64;
+          var vm = data.images.video_mime || "video/mp4";
+          var videoSection = "";
+          if (data.images.video_available && typeof vid === "string" && vid) {
+            videoSection =
+              '<h2>Vídeo (hook → short definition → extra value, 2s + 3s + 3s)</h2>' +
+              '<div class="preview-video-wrap">' +
+              '<video controls playsinline preload="metadata" src="data:' +
+              vm +
+              ";base64," +
+              vid +
+              '"></video>' +
+              '<p class="hint">Mismas tres imágenes que arriba, en secuencia (2s + 3s + 3s, transición suave).</p>' +
+              "</div>";
+          } else {
+            videoSection =
+              '<p class="hint" style="margin-top:1rem">Vídeo no generado (revisa el log del servidor). Las tres PNG siguen disponibles arriba.</p>';
+          }
           preview.innerHTML =
-            '<h2>Tarjetas (hook / short / extra)</h2>' +
+            '<h2>Tarjetas PNG (Gemini + categoría)</h2>' +
             '<div class="preview-grid">' +
             '<figure><figcaption>Hook</figcaption><img alt="Hook" src="data:' + m + ";base64," + h + '"></figure>' +
             '<figure><figcaption>Short definition</figcaption><img alt="Short" src="data:' + m + ";base64," + s + '"></figure>' +
             '<figure><figcaption>Extra value</figcaption><img alt="Extra" src="data:' + m + ";base64," + x + '"></figure>' +
-            "</div>";
+            "</div>" +
+            videoSection;
           preview.hidden = false;
         }
       } catch (err) {

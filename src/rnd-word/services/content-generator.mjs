@@ -1,5 +1,5 @@
 import { log } from "../log.mjs";
-import { renderDynamicContentPack } from "../lib/content-cards.mjs";
+import { buildSlideshowMp4FromPngBuffers, renderDynamicContentPack } from "../lib/content-cards.mjs";
 import { createSeedInput } from "../domain/seed-inputs.mjs";
 import { createContent } from "../domain/contents.mjs";
 import { buildGeminiPrompt } from "../prompts/gemini-content.mjs";
@@ -62,6 +62,12 @@ export async function createContentFromInput({ word, context, categoryId, gemini
     categoryId,
   });
 
+  const slideshow = await buildSlideshowMp4FromPngBuffers([
+    pack.hook,
+    pack.short_definition,
+    pack.extra_value,
+  ]);
+
   const images = {
     width: pack.width,
     height: pack.height,
@@ -70,6 +76,9 @@ export async function createContentFromInput({ word, context, categoryId, gemini
     hook_base64: pack.hook.toString("base64"),
     short_definition_base64: pack.short_definition.toString("base64"),
     extra_value_base64: pack.extra_value.toString("base64"),
+    video_mime: "video/mp4",
+    video_base64: slideshow ? slideshow.toString("base64") : null,
+    video_available: Boolean(slideshow),
   };
   log(
     "[create-content] imágenes listas |",
@@ -79,6 +88,7 @@ export async function createContentFromInput({ word, context, categoryId, gemini
       hook_bytes: pack.hook.length,
       short_bytes: pack.short_definition.length,
       extra_bytes: pack.extra_value.length,
+      video_bytes: slideshow ? slideshow.length : 0,
     }),
   );
 
