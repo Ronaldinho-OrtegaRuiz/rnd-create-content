@@ -1,9 +1,9 @@
 import sharp from "sharp";
 import { randomUUID } from "node:crypto";
 import { createWorker } from "tesseract.js";
-import { colorDist, cornerAverageRgb, riseformGradientBoxes } from "./chrome-raster.mjs";
-import { accentGradientDefs, chromePathNoBorder } from "./riseform-chrome-svg.mjs";
-import { buildPlayfairWordPathD } from "./playfair-display-font.mjs";
+import { colorDist, cornerAverageRgb, riseformGradientBoxes } from "../core/chrome-raster.mjs";
+import { accentGradientDefs, chromePathNoBorder } from "../core/riseform-chrome-svg.mjs";
+import { buildPlayfairWordPathD } from "../core/playfair-display-font.mjs";
 
 /** @param {any} word */
 function bboxFromWord(word) {

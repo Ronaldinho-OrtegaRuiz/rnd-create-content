@@ -12,14 +12,14 @@ import { seedInputs } from "./src/rnd-word/domain/seed-inputs.mjs";
 import { contents } from "./src/rnd-word/domain/contents.mjs";
 import { log, logErr } from "./src/rnd-word/log.mjs";
 import { createContentFromInput } from "./src/rnd-word/services/content-generator.mjs";
-import { getPlaygroundHtml } from "./src/riseform/panel-html.mjs";
-import { RISEFORM_STYLE_PRESETS, stylePhotoToRiseformCanvas } from "./src/riseform/photo-style.mjs";
-import { generatePhraseImageVariants } from "./src/riseform/phrase-image-variants.mjs";
-import { renderSolidTypographyPoster } from "./src/riseform/solid-typography-poster.mjs";
+import { getPlaygroundHtml } from "./src/riseform/ui/panel-html.mjs";
+import { RISEFORM_STYLE_PRESETS, stylePhotoToRiseformCanvas } from "./src/riseform/pipelines/photo-style.mjs";
+import { generatePhraseImageVariants } from "./src/riseform/pipelines/phrase-image-variants.mjs";
+import { renderSolidTypographyPoster } from "./src/riseform/pipelines/solid-typography-poster.mjs";
 import {
   RISEFORM_WORD_VIDEO_PRESETS,
   renderRiseformWordTimelineVideos,
-} from "./src/riseform/word-timeline-video.mjs";
+} from "./src/riseform/pipelines/word-timeline-video.mjs";
 
 const PORT = Number(process.env.PORT) || 3001;
 const BASE = "/rnd-word";

@@ -4,14 +4,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import opentype from "opentype.js";
 import sharp from "sharp";
-import { riseformGradientBoxes } from "./chrome-raster.mjs";
-import { playfairDisplayFont } from "./playfair-display-font.mjs";
-import { accentGradientDefs, chromePathNoBorder } from "./riseform-chrome-svg.mjs";
+import { riseformGradientBoxes } from "../core/chrome-raster.mjs";
+import { playfairDisplayFont } from "../core/playfair-display-font.mjs";
+import { accentGradientDefs, chromePathNoBorder } from "../core/riseform-chrome-svg.mjs";
 
 /** Fondo siempre negro (alineado con lienzo Riseform). */
 export const POSTER_BACKGROUND = "#000000";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 const BOLD_CANDIDATES = [
   join(repoRoot, "fonts", "Playfair_Display", "static", "PlayfairDisplay-Bold.ttf"),

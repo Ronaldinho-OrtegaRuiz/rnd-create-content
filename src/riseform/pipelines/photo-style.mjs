@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { composeChromeCanvas, cornerAverageRgb } from "./chrome-raster.mjs";
+import { composeChromeCanvas, cornerAverageRgb } from "../core/chrome-raster.mjs";
 import {
   ocrWordsFromPng,
   filterOcrWords,

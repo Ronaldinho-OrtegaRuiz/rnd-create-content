@@ -1,12 +1,12 @@
 import sharp from "sharp";
 import { randomUUID } from "node:crypto";
-import { riseformGradientBoxes } from "./chrome-raster.mjs";
-import { accentGradientDefs, chromePathNoBorder } from "./riseform-chrome-svg.mjs";
+import { riseformGradientBoxes } from "../core/chrome-raster.mjs";
+import { accentGradientDefs, chromePathNoBorder } from "../core/riseform-chrome-svg.mjs";
 import {
   buildPlayfairWordPathD,
   buildPlayfairPathLeft,
   measureTextWidth,
-} from "./playfair-display-font.mjs";
+} from "../core/playfair-display-font.mjs";
 
 export const PHRASE_CANVAS = { width: 512, height: 512 };
 

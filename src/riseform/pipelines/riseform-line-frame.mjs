@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import { riseformGradientBoxes } from "./chrome-raster.mjs";
+import { riseformGradientBoxes } from "../core/chrome-raster.mjs";
 import { posterSerifFont, POSTER_BACKGROUND } from "./solid-typography-poster.mjs";
-import { accentGradientDefs, chromePathNoBorder } from "./riseform-chrome-svg.mjs";
+import { accentGradientDefs, chromePathNoBorder } from "../core/riseform-chrome-svg.mjs";
 
 /** Lienzo de referencia para escalar la fuente como en `style-photo` perfil (512×512). */
 const PROFILE_FONT_REF = 512;
