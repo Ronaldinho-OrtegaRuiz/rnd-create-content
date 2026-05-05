@@ -21,7 +21,12 @@ const manropePath = join(repoRoot, "fonts", "Manrope", "Manrope-VariableFont_wgh
 const manropeFont = await opentype.load(manropePath);
 const plusJakartaSansPath = join(repoRoot, "fonts", "plus_jakarta_sans", "PlusJakartaSans-VariableFont_wght.ttf");
 const plusJakartaSansFont = await opentype.load(plusJakartaSansPath);
-const playfairDisplayPath = join(repoRoot, "fonts", "playfair_display", "PlayfairDisplay-VariableFont_wght.ttf");
+const playfairDisplayPath = join(
+  repoRoot,
+  "fonts",
+  "Playfair_Display",
+  "PlayfairDisplay-VariableFont_wght.ttf",
+);
 const playfairDisplayFont = await opentype.load(playfairDisplayPath);
 const spaceGroteskPath = join(repoRoot, "fonts", "space_grotesk", "SpaceGrotesk-VariableFont_wght.ttf");
 const spaceGroteskFont = await opentype.load(spaceGroteskPath);
@@ -669,6 +674,56 @@ ${isGreen ? chromeFilledPathStack(dOrbitronWord, pf, variant.pure, 1.18, false, 
 `.trim();
 }
 
+const RISEFORM_COVER_PHRASE = "This is your sign to keep going.";
+
+/** Mismos gradientes `sthk` que `style_hook`, escalados al lienzo 800×600 de referencia. */
+function styleHookGradientBox(targetW, targetH) {
+  const sx = targetW / 800;
+  const sy = targetH / 600;
+  return {
+    chrome: { x1: 64 * sx, y1: 96 * sy, x2: 736 * sx, y2: 504 * sy },
+    liquid: { x1: 0 * sx, y1: 300 * sy, x2: 800 * sx, y2: 288 * sy },
+  };
+}
+
+/** Perfil Riseform: “Riseform” en Playfair Display + relleno como `style_hook`. */
+function riseformProfileOverlay() {
+  const idPrefix = "sthk";
+  const W = 512;
+  const H = 512;
+  const { chrome, liquid } = styleHookGradientBox(W, H);
+  const word = "Riseform";
+  const baseFs = Math.round(130 * (W / 800));
+  const fs = Math.max(44, Math.round(baseFs * 0.58));
+  const d = buildPlayfairWordPathD(word, W / 2, H / 2, fs);
+  return `
+${accentGradientDefs(idPrefix, chrome, liquid)}
+${chromePathNoBorder(d, idPrefix)}
+`.trim();
+}
+
+/** Portada Riseform: frase en Playfair Display + relleno como `style_hook`. */
+function riseformCoverOverlay() {
+  const idPrefix = "sthk";
+  const W = 1280;
+  const H = 400;
+  const { chrome, liquid } = styleHookGradientBox(W, H);
+  const lines = wrapByChars(RISEFORM_COVER_PHRASE, 40);
+  const fs = 36;
+  const lineGap = 48;
+  const cx = W / 2;
+  const midY = H / 2;
+  const startY = midY - ((lines.length - 1) * lineGap) / 2;
+  const paths = lines.map((line, i) => {
+    const d = buildPlayfairWordPathD(line.trim(), cx, startY + i * lineGap, fs);
+    return chromePathNoBorder(d, idPrefix);
+  });
+  return `
+${accentGradientDefs(idPrefix, chrome, liquid)}
+${paths.join("\n")}
+`.trim();
+}
+
 function wrapByChars(text, maxCharsPerLine = 42) {
   const words = text.split(/\s+/);
   const lines = [];
@@ -909,6 +964,18 @@ const specs = [
     width: 1280,
     height: 400,
     overlay: svgBuffer(1280, 400, coverOverlayPreview()),
+  },
+  {
+    id: "riseform_profile",
+    width: 512,
+    height: 512,
+    overlay: svgBuffer(512, 512, riseformProfileOverlay()),
+  },
+  {
+    id: "riseform_cover",
+    width: 1280,
+    height: 400,
+    overlay: svgBuffer(1280, 400, riseformCoverOverlay()),
   },
   {
     id: "style_hook",
@@ -1162,7 +1229,7 @@ export async function runStaticImageExport() {
     log("OK", path, `${width}x${height}`);
   }
 
-  log("Listo. Abre preview.html en el navegador.");
+  log("Listo. Abre rnd-word.html en el navegador.");
 }
 
 function profileOverlay() {
@@ -1207,7 +1274,7 @@ function coverOverlay() {
 `.trim();
 }
 
-/** Perfil “marca” para preview.html: halo sutil multicolor + RND con relleno y bloom ligero (motivation sigue en profile_photo clásico). */
+/** Perfil “marca” para rnd-word.html: halo sutil multicolor + RND con relleno y bloom ligero (perfil clásico: profile_photo; riseform: riseform_profile con “Riseform”). */
 function profileOverlayPreview() {
   const fontSize = 122;
   const letterSpacing = 2 / fontSize;
@@ -1244,7 +1311,7 @@ function profileOverlayPreview() {
 `.trim();
 }
 
-/** Portada “marca” para preview.html: negro + franja horizontal de marca + línea neón suave; copy con ritmo (motivation sin cambios). */
+/** Portada “marca” para rnd-word.html: negro + franja horizontal de marca + línea neón suave; copy con ritmo (portada clásica: cover_photo; estilo hook: riseform_cover). */
 function coverOverlayPreview() {
   const cx = 640;
   const y1 = 164;
