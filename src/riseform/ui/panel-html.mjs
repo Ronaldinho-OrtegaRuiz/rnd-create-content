@@ -2,9 +2,10 @@
  * Página de prueba del servidor: pestañas rnd-word (Gemini) y Riseform (foto → lienzo).
  * @param {string} rndBase ej. "/rnd-word"
  * @param {string} riseformBase ej. "/riseform" (API Riseform, independiente de rnd-word)
+ * @param {string} pruebaVideoBase ej. "/prueba-video" (guion Gemini + MP4 estilo portada, temporal)
  * @param {string} categoryOptionsHtml opciones <option> para categorías
  */
-export function getPlaygroundHtml(rndBase, riseformBase, categoryOptionsHtml) {
+export function getPlaygroundHtml(rndBase, riseformBase, pruebaVideoBase, categoryOptionsHtml) {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -62,17 +63,27 @@ export function getPlaygroundHtml(rndBase, riseformBase, categoryOptionsHtml) {
     .rise-modes { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
     .rise-modes label { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600; margin-top: 0; width: auto; cursor: pointer; }
     .rise-mode-panel[hidden] { display: none !important; }
-    .preview-video-wrap { margin-top: 1rem; max-width: 100%; }
-    .preview-video-wrap video { width: 100%; max-width: min(720px, 100%); display: block; border-radius: 10px; border: 1px solid #cbd5e1; background: #000; margin: 0 auto; }
+    .preview-video-wrap { margin-top: 0.5rem; max-width: 100%; }
+    .preview-video-wrap video { width: 100%; max-width: 100%; display: block; border-radius: 10px; border: 1px solid #cbd5e1; background: #000; }
     .preview-video-wrap .hint { font-size: 0.8rem; margin-top: 0.35rem; text-align: center; }
+    .preview-videos-dual { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; align-items: start; }
+    .preview-videos-dual figure { margin: 0; min-width: 0; }
+    .preview-videos-quad { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; align-items: start; }
+    .preview-videos-quad figure { margin: 0; min-width: 0; }
+    .preview-videos-quad .video-vertical video { max-height: min(52vh, 520px); width: auto; max-width: 100%; margin: 0 auto; }
+    .preview-section-label { font-size: 0.85rem; font-weight: 700; color: #475569; margin: 1rem 0 0.5rem; grid-column: 1 / -1; }
+    @media (max-width: 900px) {
+      .preview-videos-dual, .preview-videos-quad { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
   <h1>rnd-word · Riseform</h1>
-  <p class="hint">Pestaña <strong>rnd-word</strong>: Gemini + tarjetas. <strong>Riseform</strong>: <em>Refactor imagen</em>, <em>Frase → variantes</em>, <em>Póster tipográfico</em>, <em>Vídeos palabra/frase</em> (timeline MP4, fondo negro + mismo gradiente, varios presets de transición).</p>
+  <p class="hint">Pestaña <strong>rnd-word</strong>: Gemini + tarjetas. <strong>Riseform</strong>: imagen, frases, póster, vídeos timeline. <strong>prueba-video</strong> (temporal): concepto → mismo guion <strong>ES + EN</strong> → <strong>2 MP4</strong> sin audio (portada Riseform).</p>
   <div class="tabs" role="tablist">
     <button type="button" class="tab active" data-tab="rnd" role="tab" aria-selected="true">rnd-word (Gemini)</button>
     <button type="button" class="tab" data-tab="rise" role="tab" aria-selected="false">Riseform (foto)</button>
+    <button type="button" class="tab" data-tab="pv" role="tab" aria-selected="false">prueba-video</button>
   </div>
 
   <section id="panel-rnd" class="tab-panel" role="tabpanel">
@@ -175,12 +186,32 @@ export function getPlaygroundHtml(rndBase, riseformBase, categoryOptionsHtml) {
     </div>
   </section>
 
+  <section id="panel-pv" class="tab-panel" hidden role="tabpanel">
+    <h2 class="panel-title">${pruebaVideoBase}/generate</h2>
+    <p class="hint">
+      <code>POST ${pruebaVideoBase}/generate</code> con <code>concept</code>. Guion <strong>redes</strong> (prosa, sin listas). Largo horizontal <strong>2:45–5:00</strong> (ES+EN) + short vertical <strong>~30 s</strong> (26–34 s, ES+EN). Transición dissolve. Requiere <code>GEMINI_API_KEY</code> y ffmpeg.
+    </p>
+    <form id="form-prueba-video" method="post" action="#">
+      <label>Concepto <textarea name="concept" rows="4" placeholder="Ej.: La resiliencia después de un fracaso" required></textarea></label>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-weight:600;">
+        <input type="checkbox" name="preview" value="1" checked style="width:auto;margin:0;" />
+        Largo al mínimo 2:45 (marcado). Desmarca para objetivo ~5:00
+      </label>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-weight:600;">
+        <input type="checkbox" name="include_video" value="1" checked style="width:auto;margin:0;" />
+        Generar MP4 (desmarcar = solo guion JSON)
+      </label>
+      <button type="submit" id="btn-prueba-video">Generar diapositivas + 4 vídeos (2 largos + 2 shorts)</button>
+    </form>
+  </section>
+
   <pre id="out">Respuesta aquí...</pre>
   <section class="preview" id="preview" hidden></section>
 
   <script>
     const RND_BASE = "${rndBase}";
     const RISEFORM_API = "${riseformBase}";
+    const PRUEBA_VIDEO_API = "${pruebaVideoBase}";
     const f = document.getElementById("f");
     const formRise = document.getElementById("form-rise");
     const formRisePhrase = document.getElementById("form-rise-phrase");
@@ -193,10 +224,30 @@ export function getPlaygroundHtml(rndBase, riseformBase, categoryOptionsHtml) {
     const btnRisePhrase = document.getElementById("btn-rise-phrase");
     const btnRisePoster = document.getElementById("btn-rise-poster");
     const btnRiseVideo = document.getElementById("btn-rise-video");
+    const formPruebaVideo = document.getElementById("form-prueba-video");
+    const btnPruebaVideo = document.getElementById("btn-prueba-video");
     const panelPhoto = document.getElementById("rise-mode-photo");
     const panelPhrase = document.getElementById("rise-mode-phrase");
     const panelPoster = document.getElementById("rise-mode-poster");
     const panelVideo = document.getElementById("rise-mode-video");
+    var previewBlobUrls = [];
+
+    function revokePreviewBlobUrls() {
+      previewBlobUrls.forEach(function (u) {
+        try { URL.revokeObjectURL(u); } catch (e) {}
+      });
+      previewBlobUrls = [];
+    }
+
+    function mp4BlobUrlFromBase64(b64, mime) {
+      var bin = atob(b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var blob = new Blob([bytes], { type: mime || "video/mp4" });
+      var url = URL.createObjectURL(blob);
+      previewBlobUrls.push(url);
+      return url;
+    }
 
     function syncVideoCanvasDefaults() {
       if (!formRiseVideo) return;
@@ -244,8 +295,10 @@ export function getPlaygroundHtml(rndBase, riseformBase, categoryOptionsHtml) {
           });
           var panelRnd = document.getElementById("panel-rnd");
           var panelRise = document.getElementById("panel-rise");
+          var panelPv = document.getElementById("panel-pv");
           if (panelRnd) panelRnd.hidden = tab !== "rnd";
           if (panelRise) panelRise.hidden = tab !== "rise";
+          if (panelPv) panelPv.hidden = tab !== "pv";
           if (tab === "rise") {
             var photoRadio = document.querySelector('input[name="rise_mode"][value="photo"]');
             if (photoRadio) photoRadio.checked = true;
@@ -293,6 +346,18 @@ export function getPlaygroundHtml(rndBase, riseformBase, categoryOptionsHtml) {
           }
           return c;
         });
+      }
+      if (o.prueba_video && o.prueba_video.videos && typeof o.prueba_video.videos === "object") {
+        o.prueba_video = JSON.parse(JSON.stringify(o.prueba_video));
+        function maskVid(v) {
+          if (v && typeof v.video_base64 === "string" && v.video_base64) {
+            v.video_base64 = "[base64 " + v.video_base64.length + " chars]";
+          }
+        }
+        var vids = o.prueba_video.videos;
+        if (vids.long) ["es", "en"].forEach(function (lang) { maskVid(vids.long[lang]); });
+        if (vids.short) ["es", "en"].forEach(function (lang) { maskVid(vids.short[lang]); });
+        ["es", "en"].forEach(function (lang) { maskVid(vids[lang]); });
       }
       return o;
     }
@@ -606,6 +671,101 @@ export function getPlaygroundHtml(rndBase, riseformBase, categoryOptionsHtml) {
         out.textContent = "Error: " + (errV && errV.message ? errV.message : String(errV));
       } finally {
         if (btnRiseVideo) btnRiseVideo.disabled = false;
+      }
+    });
+
+    if (formPruebaVideo) formPruebaVideo.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      revokePreviewBlobUrls();
+      preview.hidden = true;
+      preview.innerHTML = "";
+      out.textContent = "Gemini (diapositivas ES+EN) + 4 vídeos (puede tardar varios minutos)...";
+      if (btnPruebaVideo) btnPruebaVideo.disabled = true;
+      try {
+        var fdp = new FormData(formPruebaVideo);
+        var bodyP = {
+          concept: String(fdp.get("concept") || "").trim(),
+          preview: !!fdp.get("preview"),
+          include_video: !!fdp.get("include_video"),
+        };
+        var rp = await fetch(PRUEBA_VIDEO_API + "/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyP),
+        });
+        var rawP = await rp.text();
+        var dataP = null;
+        try {
+          dataP = JSON.parse(rawP);
+        } catch (pe3) {
+          out.textContent = "HTTP " + rp.status + "\\n\\n" + rawP.slice(0, 8000);
+          return;
+        }
+        out.textContent = "HTTP " + rp.status + "\\n\\n" + JSON.stringify(forPreDisplay(dataP), null, 2);
+        if (dataP.ok && dataP.prueba_video && dataP.prueba_video.videos) {
+          var pv = dataP.prueba_video;
+          var vids = pv.videos;
+          function videoBlock(bucket, lang, label, vertical) {
+            var v = bucket && bucket[lang] ? bucket[lang] : null;
+            if (!v || !v.video_base64) {
+              return (
+                '<figure class="' +
+                (vertical ? "video-vertical" : "") +
+                '"><figcaption><strong>' +
+                label +
+                '</strong></figcaption><p class="hint">Sin vídeo.</p></figure>'
+              );
+            }
+            var scr = pv.script && pv.script[lang] ? pv.script[lang] : null;
+            var title =
+              vertical && scr && scr.short_title
+                ? scr.short_title
+                : scr && scr.title
+                  ? scr.title
+                  : lang;
+            var src = mp4BlobUrlFromBase64(v.video_base64, v.mime || "video/mp4");
+            return (
+              '<figure class="' +
+              (vertical ? "video-vertical" : "") +
+              '"><figcaption><strong>' +
+              label +
+              "</strong> · " +
+              title +
+              " · " +
+              (v.duration_sec || "?") +
+              " s · " +
+              v.width +
+              "×" +
+              v.height +
+              '</figcaption><div class="preview-video-wrap"><video controls playsinline preload="metadata" src="' +
+              src +
+              '"></video></div></figure>'
+            );
+          }
+          var longBucket = vids.long || vids;
+          var shortBucket = vids.short || null;
+          preview.innerHTML =
+            "<h2>prueba-video · 4 vídeos (sin audio)</h2>" +
+            '<div class="preview-videos-quad">' +
+            '<p class="preview-section-label">Largo (horizontal, 2:45–5:00)</p>' +
+            videoBlock(longBucket, "es", "ES largo", false) +
+            videoBlock(longBucket, "en", "EN largo", false) +
+            '<p class="preview-section-label">Short vertical (Reels / TikTok, ~30 s, 26–34 s)</p>' +
+            (shortBucket
+              ? videoBlock(shortBucket, "es", "ES short", true) + videoBlock(shortBucket, "en", "EN short", true)
+              : '<p class="hint">Sin shorts en la respuesta (actualiza el servidor).</p>') +
+            "</div>" +
+            '<p class="hint">Guion en JSON: script.es.slides / short_slides · transición ' +
+            (longBucket.es && longBucket.es.transition_fade_sec
+              ? longBucket.es.transition_fade_sec + " s dissolve"
+              : "dissolve") +
+            "</p>";
+          preview.hidden = false;
+        }
+      } catch (errP) {
+        out.textContent = "Error: " + (errP && errP.message ? errP.message : String(errP));
+      } finally {
+        if (btnPruebaVideo) btnPruebaVideo.disabled = false;
       }
     });
   </script>

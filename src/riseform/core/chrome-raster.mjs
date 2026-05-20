@@ -5,14 +5,14 @@
 
 /** Paradas ACCENT_CHROME (offsets 0–1, RGB 0–255) */
 const CHROME_STOPS = [
-  { t: 0, r: 0, g: 0, b: 0 },
+  { t: 0, r: 13, g: 34, b: 20 },
   { t: 0.12, r: 13, g: 34, b: 20 },
   { t: 0.25, r: 28, g: 79, b: 52 },
   { t: 0.4, r: 20, g: 86, b: 124 },
   { t: 0.55, r: 51, g: 79, b: 150 },
   { t: 0.7, r: 106, g: 61, b: 138 },
   { t: 0.84, r: 139, g: 78, b: 32 },
-  { t: 1, r: 0, g: 0, b: 0 },
+  { t: 1, r: 139, g: 78, b: 32 },
 ];
 
 /** Liquid (RGBA 0–255 / alpha 0–1), ejes como en SVG */

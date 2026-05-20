@@ -20,10 +20,12 @@ import {
   RISEFORM_WORD_VIDEO_PRESETS,
   renderRiseformWordTimelineVideos,
 } from "./src/riseform/pipelines/word-timeline-video.mjs";
+import { runPruebaVideoGenerate } from "./src/prueba-video/pipelines/run-prueba-video.mjs";
 
 const PORT = Number(process.env.PORT) || 3001;
 const BASE = "/rnd-word";
 const RISEFORM_BASE = "/riseform";
+const PRUEBA_VIDEO_BASE = "/prueba-video";
 
 log(`[rnd-word] arrancando (PORT=${PORT})…`);
 
@@ -187,7 +189,7 @@ const swaggerUiHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-const testPageHtml = getPlaygroundHtml(BASE, RISEFORM_BASE, categoryOptionsHtml);
+const testPageHtml = getPlaygroundHtml(BASE, RISEFORM_BASE, PRUEBA_VIDEO_BASE, categoryOptionsHtml);
 
 const server = http.createServer(async (req, res) => {
   const host = req.headers.host || `localhost:${PORT}`;
@@ -199,6 +201,119 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (pathname.length > 1 && pathname.endsWith("/")) pathname = pathname.slice(0, -1);
+
+  if (pathname.startsWith(PRUEBA_VIDEO_BASE)) {
+    const pvRoute = pathname.slice(PRUEBA_VIDEO_BASE.length) || "/";
+    if (pvRoute === "/" && req.method === "GET") {
+      const origin = new URL(`http://${host}`).origin;
+      json(res, 200, {
+        service: "prueba-video",
+        temporary: true,
+        description:
+          "Gemini → guion redes: largo 2:45–5:00 (ES+EN) + short 26–34 s objetivo 30 (ES+EN). Transición dissolve.",
+        links: {
+          generate: `${origin}${PRUEBA_VIDEO_BASE}/generate`,
+        },
+        body_example: {
+          concept: "La disciplina como hábito diario",
+          preview: true,
+          include_video: true,
+        },
+      });
+      return;
+    }
+    if (pvRoute === "/generate" && req.method === "POST") {
+      let raw;
+      try {
+        raw = await readBody(req);
+      } catch (error) {
+        json(res, 400, { ok: false, error: "No se pudo leer el cuerpo" });
+        return;
+      }
+      let body;
+      try {
+        body = JSON.parse(raw || "{}");
+      } catch {
+        json(res, 400, { ok: false, error: "JSON inválido" });
+        return;
+      }
+      const concept = typeof body.concept === "string" ? body.concept.trim() : "";
+      if (!concept) {
+        json(res, 422, { ok: false, error: "Falta concept (texto no vacío)" });
+        return;
+      }
+      const preview =
+        body.preview === true ||
+        body.preview === "true" ||
+        body.preview === "1" ||
+        body.preview === "on";
+      const includeVideo = body.include_video !== false && body.includeVideo !== false;
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        json(res, 503, { ok: false, error: "Falta GEMINI_API_KEY en el entorno" });
+        return;
+      }
+      const durationRaw =
+        body.long_duration_target_sec ??
+        body.longDurationTargetSec ??
+        body.duration_target_sec ??
+        body.durationTargetSec;
+      let longDurationSec;
+      if (durationRaw !== undefined && String(durationRaw).trim() !== "") {
+        const d = Number(durationRaw);
+        if (Number.isFinite(d) && d >= 165 && d <= 300) {
+          longDurationSec = Math.round(d);
+        }
+      }
+      const w = Number(body.width ?? body.w);
+      const h = Number(body.height ?? body.h);
+      const width = Number.isFinite(w) && w >= 320 && w <= 3840 ? Math.round(w) : undefined;
+      const height = Number.isFinite(h) && h >= 120 && h <= 2160 ? Math.round(h) : undefined;
+      try {
+        const result = await runPruebaVideoGenerate({
+          concept,
+          geminiApiKey: apiKey,
+          preview,
+          longDurationSec,
+          includeVideo,
+          width,
+          height,
+        });
+        log(
+          "[prueba-video/generate] OK |",
+          `preview=${preview} slides=${result.script.slide_count} short=${result.script.short_slide_count} videos=${includeVideo ? "4" : "none"}`,
+        );
+        json(res, 200, {
+          ok: true,
+          prueba_video: {
+            concept: result.concept,
+            preview_mode: result.preview_mode,
+            long_duration_target_sec: result.long_duration_target_sec,
+            short_duration_target_sec: result.short_duration_target_sec,
+            duration_target_sec: result.long_duration_target_sec,
+            script: result.script,
+            videos: result.videos,
+          },
+        });
+      } catch (error) {
+        const msg = String(error.message || error);
+        const code = msg.includes("ffmpeg") ? 503 : msg.includes("Gemini") ? 502 : 502;
+        logErr("[prueba-video/generate]", msg);
+        json(res, code, {
+          ok: false,
+          error: "prueba-video generate failed",
+          detail: msg,
+        });
+      }
+      return;
+    }
+    json(res, 404, {
+      error: "Not found",
+      path: pathname,
+      hint: `GET ${PRUEBA_VIDEO_BASE}/ | POST ${PRUEBA_VIDEO_BASE}/generate`,
+    });
+    return;
+  }
 
   if (pathname.startsWith(RISEFORM_BASE)) {
     const rRoute = pathname.slice(RISEFORM_BASE.length) || "/";
@@ -479,7 +594,7 @@ const server = http.createServer(async (req, res) => {
   if (!pathname.startsWith(BASE)) {
     json(res, 404, {
       error: "Not found",
-      hint: `Usa ${RISEFORM_BASE} (Riseform) o ${BASE} (rnd-word)`,
+      hint: `Usa ${PRUEBA_VIDEO_BASE}, ${RISEFORM_BASE} (Riseform) o ${BASE} (rnd-word)`,
     });
     return;
   }
@@ -498,6 +613,8 @@ const server = http.createServer(async (req, res) => {
         categories: `${origin}${BASE}/categories`,
         riseform: `${origin}${RISEFORM_BASE}/`,
         riseform_style_photo: `${origin}${RISEFORM_BASE}/style-photo`,
+        prueba_video: `${origin}${PRUEBA_VIDEO_BASE}/`,
+        prueba_video_generate: `${origin}${PRUEBA_VIDEO_BASE}/generate`,
       },
     });
     return;
@@ -636,4 +753,5 @@ server.listen(PORT, () => {
   log(`Servidor arriba | ${origin}${BASE}/docs`);
   log(`Panel pruebas | ${origin}${BASE}/create-content`);
   log(`Riseform API | ${origin}${RISEFORM_BASE}/style-photo`);
+  log(`Prueba-video | ${origin}${PRUEBA_VIDEO_BASE}/generate (preview=true ~90s)`);
 });

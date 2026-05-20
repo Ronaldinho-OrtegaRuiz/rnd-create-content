@@ -49,14 +49,14 @@ const CHROME_STOPS = `
 `;
 
 const ACCENT_CHROME_STOPS = `
-    <stop offset="0%" stop-color="#000000"/>
+    <stop offset="0%" stop-color="#0d2214"/>
     <stop offset="12%" stop-color="#0d2214"/>
     <stop offset="25%" stop-color="#1c4f34"/>
     <stop offset="40%" stop-color="#14567c"/>
     <stop offset="55%" stop-color="#334f96"/>
     <stop offset="70%" stop-color="#6a3d8a"/>
     <stop offset="84%" stop-color="#8b4e20"/>
-    <stop offset="100%" stop-color="#000000"/>
+    <stop offset="100%" stop-color="#8b4e20"/>
 `;
 
 const LIQUID_STOPS = `
