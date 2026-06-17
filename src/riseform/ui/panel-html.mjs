@@ -79,7 +79,7 @@ export function getPlaygroundHtml(rndBase, riseformBase, pruebaVideoBase, catego
 </head>
 <body>
   <h1>rnd-word · Riseform</h1>
-  <p class="hint">Pestaña <strong>rnd-word</strong>: Gemini + tarjetas. <strong>Riseform</strong>: imagen, frases, póster, vídeos timeline. <strong>prueba-video</strong> (temporal): concepto → mismo guion <strong>ES + EN</strong> → <strong>2 MP4</strong> sin audio (portada Riseform).</p>
+  <p class="hint">Pestaña <strong>rnd-word</strong>: Gemini + tarjetas. <strong>Riseform</strong>: imagen, frases, póster, vídeos timeline. <strong>prueba-video</strong>: concepto → guion ES+EN → <strong>4 MP4</strong> (fractal + texto + <strong>lofi procedural</strong>).</p>
   <div class="tabs" role="tablist">
     <button type="button" class="tab active" data-tab="rnd" role="tab" aria-selected="true">rnd-word (Gemini)</button>
     <button type="button" class="tab" data-tab="rise" role="tab" aria-selected="false">Riseform (foto)</button>
@@ -189,7 +189,7 @@ export function getPlaygroundHtml(rndBase, riseformBase, pruebaVideoBase, catego
   <section id="panel-pv" class="tab-panel" hidden role="tabpanel">
     <h2 class="panel-title">${pruebaVideoBase}/generate</h2>
     <p class="hint">
-      <code>POST ${pruebaVideoBase}/generate</code> con <code>concept</code>. Guion <strong>redes</strong> (prosa, sin listas). Largo horizontal <strong>2:45–5:00</strong> (ES+EN) + short vertical <strong>~30 s</strong> (26–34 s, ES+EN). Transición dissolve. Requiere <code>GEMINI_API_KEY</code> y ffmpeg.
+      <code>POST ${pruebaVideoBase}/generate</code> con <code>concept</code>. Largo <strong>16:9</strong> + short <strong>9:16</strong> (ES+EN). Intro marca + fractales + outro + <strong>audio lofi</strong> (según concepto). Puede tardar <strong>mucho</strong>; no cierres la pestaña.
     </p>
     <form id="form-prueba-video" method="post" action="#">
       <label>Concepto <textarea name="concept" rows="4" placeholder="Ej.: La resiliencia después de un fracaso" required></textarea></label>
@@ -201,7 +201,7 @@ export function getPlaygroundHtml(rndBase, riseformBase, pruebaVideoBase, catego
         <input type="checkbox" name="include_video" value="1" checked style="width:auto;margin:0;" />
         Generar MP4 (desmarcar = solo guion JSON)
       </label>
-      <button type="submit" id="btn-prueba-video">Generar diapositivas + 4 vídeos (2 largos + 2 shorts)</button>
+      <button type="submit" id="btn-prueba-video">Generar guion + 4 vídeos (fractal + lofi)</button>
     </form>
   </section>
 
@@ -679,7 +679,18 @@ export function getPlaygroundHtml(rndBase, riseformBase, pruebaVideoBase, catego
       revokePreviewBlobUrls();
       preview.hidden = true;
       preview.innerHTML = "";
-      out.textContent = "Gemini (diapositivas ES+EN) + 4 vídeos (puede tardar varios minutos)...";
+      var pvStarted = Date.now();
+      var pvTimer = setInterval(function () {
+        var sec = Math.floor((Date.now() - pvStarted) / 1000);
+        var m = Math.floor(sec / 60);
+        var s = sec % 60;
+        out.textContent =
+          "Gemini (guion ES+EN) + fractales + lofi + intro/outro marca… " +
+          (m > 0 ? m + " min " : "") +
+          s +
+          " s (no cierres la pestaña)";
+      }, 1000);
+      out.textContent = "Gemini (guion ES+EN) + intro/outro + 4 vídeos… 0 s";
       if (btnPruebaVideo) btnPruebaVideo.disabled = true;
       try {
         var fdp = new FormData(formPruebaVideo);
@@ -745,9 +756,9 @@ export function getPlaygroundHtml(rndBase, riseformBase, pruebaVideoBase, catego
           var longBucket = vids.long || vids;
           var shortBucket = vids.short || null;
           preview.innerHTML =
-            "<h2>prueba-video · 4 vídeos (sin audio)</h2>" +
+            "<h2>prueba-video · 4 vídeos (fractal + lofi)</h2>" +
             '<div class="preview-videos-quad">' +
-            '<p class="preview-section-label">Largo (horizontal, 2:45–5:00)</p>' +
+            '<p class="preview-section-label">Largo (16:9 · 1920×1080)</p>' +
             videoBlock(longBucket, "es", "ES largo", false) +
             videoBlock(longBucket, "en", "EN largo", false) +
             '<p class="preview-section-label">Short vertical (Reels / TikTok, ~30 s, 26–34 s)</p>' +
@@ -765,6 +776,7 @@ export function getPlaygroundHtml(rndBase, riseformBase, pruebaVideoBase, catego
       } catch (errP) {
         out.textContent = "Error: " + (errP && errP.message ? errP.message : String(errP));
       } finally {
+        clearInterval(pvTimer);
         if (btnPruebaVideo) btnPruebaVideo.disabled = false;
       }
     });

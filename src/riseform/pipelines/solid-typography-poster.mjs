@@ -18,8 +18,31 @@ const BOLD_CANDIDATES = [
   join(repoRoot, "fonts", "Playfair_Display", "PlayfairDisplay-Bold.ttf"),
 ];
 
+const MONO_CANDIDATES = [
+  join(repoRoot, "fonts", "IBM Plex Mono", "IBMPlexMono-Light.ttf"),
+  join(repoRoot, "fonts", "IBMPlexMono-Light.ttf"),
+  join(repoRoot, "fonts", "IBM Plex Mono", "IBMPlexMono-Regular.ttf"),
+  join(repoRoot, "fonts", "IBMPlexMono-Regular.ttf"),
+];
+
 /** Serif bold si existe en disco; si no, variable Playfair (proyecto Riseform). */
 export const posterSerifFont = await loadBoldSerif();
+
+/** IBM Plex Mono para overlays prueba-video. */
+export const posterMonoFont = await loadMonoFont();
+
+async function loadMonoFont() {
+  for (const p of MONO_CANDIDATES) {
+    if (existsSync(p)) {
+      try {
+        return await opentype.load(p);
+      } catch {
+        /* siguiente */
+      }
+    }
+  }
+  return posterSerifFont;
+}
 
 async function loadBoldSerif() {
   for (const p of BOLD_CANDIDATES) {
@@ -241,6 +264,95 @@ export async function renderSolidTypographyPoster(opts) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="${escapeXmlAttr(background)}"/>
   ${defs}
+  ${pathMarkup}
+</svg>`;
+
+  return sharp(Buffer.from(svg, "utf8")).png().toBuffer();
+}
+
+/** Tope de tamaño para texto mono pequeño (prueba-video sobre fractales). */
+export function monoOverlayFontSizeCap(width, height) {
+  const shortSide = Math.min(width, height);
+  if (width > height * 1.5) {
+    return Math.max(11, Math.round(shortSide * 0.034));
+  }
+  return Math.max(15, Math.round(shortSide * 0.026));
+}
+
+/**
+ * PNG con fondo transparente + texto blanco IBM Plex Mono (overlay sobre fractal).
+ *
+ * @param {object} opts
+ * @param {string} opts.text
+ * @param {number} opts.width
+ * @param {number} opts.height
+ * @param {number} [opts.paddingRatio]
+ * @param {number} [opts.lineGapRatio]
+ * @param {number} [opts.fontSizeCap]
+ * @param {import("opentype.js").Font} [opts.font]
+ * @returns {Promise<Buffer>}
+ */
+export async function renderMonoWhiteTextOverlayPng(opts) {
+  const text = typeof opts.text === "string" ? opts.text : "";
+  const width = Math.max(32, Math.round(Number(opts.width) || 512));
+  const height = Math.max(32, Math.round(Number(opts.height) || 512));
+  const paddingRatio =
+    typeof opts.paddingRatio === "number" && opts.paddingRatio > 0 && opts.paddingRatio < 0.35
+      ? opts.paddingRatio
+      : width > height * 1.5
+        ? 0.12
+        : 0.16;
+  const lineGapRatio =
+    typeof opts.lineGapRatio === "number" && opts.lineGapRatio >= 0 && opts.lineGapRatio < 0.6
+      ? opts.lineGapRatio
+      : 0.18;
+  const fontSizeCap =
+    typeof opts.fontSizeCap === "number" && opts.fontSizeCap > 4
+      ? opts.fontSizeCap
+      : monoOverlayFontSizeCap(width, height);
+  const font = opts.font || posterMonoFont;
+
+  const shortSide = Math.min(width, height);
+  const pad = Math.round(shortSide * paddingRatio);
+  const innerW = width - 2 * pad;
+  const innerH = height - 2 * pad;
+
+  if (!text.trim()) {
+    const svgEmpty = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`;
+    return sharp(Buffer.from(svgEmpty, "utf8")).png().toBuffer();
+  }
+
+  let fontSize = findBestFontSize(font, text, innerW, innerH, lineGapRatio);
+  fontSize = Math.min(fontSize, fontSizeCap);
+  fontSize = tightenUntilFits(font, text, innerW, innerH, lineGapRatio, fontSize);
+  const lines = wrapTextToWidth(font, text, innerW, fontSize);
+  const gap = fontSize * lineGapRatio;
+
+  const lineBoxes = lines.map((line) => {
+    const p = font.getPath(line, 0, 0, fontSize, { kerning: true });
+    return p.getBoundingBox();
+  });
+  const heights = lineBoxes.map((b) => b.y2 - b.y1);
+  const totalStack =
+    heights.reduce((a, h, i) => a + h + (i < heights.length - 1 ? gap : 0), 0) || heights[0] || fontSize;
+
+  let yCursor = pad + (innerH - totalStack) / 2;
+  const pathDs = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const h = heights[i];
+    const cy = yCursor + h / 2;
+    pathDs.push(pathDCentered(font, line, width / 2, cy, fontSize));
+    yCursor += h + (i < lines.length - 1 ? gap : 0);
+  }
+
+  const pathMarkup = pathDs
+    .map((d) => `<path d="${escapeXmlAttr(d)}" fill="#ffffff" fill-rule="evenodd"/>`)
+    .join("\n");
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   ${pathMarkup}
 </svg>`;
 

@@ -71,6 +71,29 @@ export function polishSlideText(text) {
  * @param {number} minDur
  * @param {number} maxDur
  */
+function topUpSlidesToMinTotal(slides, minTotalSec, maxDur) {
+  const sum = (list) => list.reduce((a, s) => a + s.duration_sec, 0);
+  let result = slides.map((s) => ({ ...s }));
+  let deficit = Math.round((minTotalSec - sum(result)) * 10) / 10;
+  if (deficit <= 0) return result;
+
+  for (let i = result.length - 1; i >= 0 && deficit > 0; i--) {
+    const room = Math.round((maxDur - result[i].duration_sec) * 10) / 10;
+    const add = Math.min(room, deficit);
+    if (add > 0) {
+      result[i].duration_sec = Math.round((result[i].duration_sec + add) * 10) / 10;
+      deficit = Math.round((deficit - add) * 10) / 10;
+    }
+  }
+
+  if (deficit > 0 && result.length > 0) {
+    const last = result.length - 1;
+    result[last].duration_sec = Math.round((result[last].duration_sec + deficit) * 10) / 10;
+  }
+
+  return result;
+}
+
 export function ensureMinimumTotalDuration(slides, minTotalSec, minDur, maxDur) {
   if (slides.length === 0 || minTotalSec <= 0) return slides;
 
@@ -94,7 +117,7 @@ export function ensureMinimumTotalDuration(slides, minTotalSec, minDur, maxDur) 
     }));
   }
 
-  return result;
+  return topUpSlidesToMinTotal(result, minTotalSec, maxDur);
 }
 
 /**
@@ -339,6 +362,87 @@ export function parseGeminiBilingualVideoScript(raw, targets) {
   };
 }
 
+function syncLangSlideDurations(script) {
+  for (let i = 0; i < script.es.slides.length; i++) {
+    script.en.slides[i].duration_sec = script.es.slides[i].duration_sec;
+  }
+  for (let i = 0; i < script.es.short_slides.length; i++) {
+    script.en.short_slides[i].duration_sec = script.es.short_slides[i].duration_sec;
+  }
+
+  const longTotal =
+    Math.round(script.es.slides.reduce((a, s) => a + s.duration_sec, 0) * 10) / 10;
+  const shortTotal =
+    Math.round(script.es.short_slides.reduce((a, s) => a + s.duration_sec, 0) * 10) / 10;
+
+  for (const lang of ["es", "en"]) {
+    const pack = script[lang];
+    pack.total_duration_sec = longTotal;
+    pack.short_total_duration_sec = shortTotal;
+    pack.segments = pack.slides;
+    pack.short_segments = pack.short_slides;
+  }
+  script.total_duration_sec = longTotal;
+  script.short_total_duration_sec = shortTotal;
+  return { longTotal, shortTotal };
+}
+
+/**
+ * Corrige redondeos de Gemini (p. ej. 164.9 s cuando el mínimo es 165 s).
+ * @param {ReturnType<typeof parseGeminiBilingualVideoScript>} script
+ */
+export function repairScriptDurationBounds(script) {
+  const longBefore = script.total_duration_sec;
+  const shortBefore = script.short_total_duration_sec;
+
+  let longAdjusted = false;
+  let shortAdjusted = false;
+
+  if (longBefore < MIN_LONG_DURATION_SEC) {
+    script.es.slides = topUpSlidesToMinTotal(
+      script.es.slides,
+      MIN_LONG_DURATION_SEC,
+      MAX_SEGMENT_DURATION_SEC,
+    );
+    longAdjusted = true;
+  } else if (longBefore > MAX_LONG_DURATION_SEC) {
+    script.es.slides = ensureMaximumTotalDuration(
+      script.es.slides,
+      MAX_LONG_DURATION_SEC,
+      MIN_SEGMENT_DURATION_SEC,
+      MAX_SEGMENT_DURATION_SEC,
+    );
+    longAdjusted = true;
+  }
+
+  if (shortBefore < MIN_SHORT_DURATION_SEC) {
+    script.es.short_slides = topUpSlidesToMinTotal(
+      script.es.short_slides,
+      MIN_SHORT_DURATION_SEC,
+      MAX_SHORT_SLIDE_DURATION_SEC,
+    );
+    shortAdjusted = true;
+  } else if (shortBefore > MAX_SHORT_DURATION_SEC) {
+    script.es.short_slides = ensureMaximumTotalDuration(
+      script.es.short_slides,
+      MAX_SHORT_DURATION_SEC,
+      MIN_SHORT_SLIDE_DURATION_SEC,
+      MAX_SHORT_SLIDE_DURATION_SEC,
+    );
+    shortAdjusted = true;
+  }
+
+  const { longTotal, shortTotal } = syncLangSlideDurations(script);
+  return {
+    longBefore,
+    longAfter: longTotal,
+    shortBefore,
+    shortAfter: shortTotal,
+    longAdjusted,
+    shortAdjusted,
+  };
+}
+
 /**
  * @param {object} opts
  * @param {string} opts.concept
@@ -391,22 +495,29 @@ export async function generateVideoScriptWithGemini(opts) {
     maxShortDurationSec: MAX_SHORT_DURATION_SEC,
   });
 
-  if (script.total_duration_sec < MIN_LONG_DURATION_SEC) {
+  const repaired = repairScriptDurationBounds(script);
+  if (repaired.longAdjusted || repaired.shortAdjusted) {
+    log(
+      `[prueba-video/script] duración ajustada | long=${repaired.longBefore}→${repaired.longAfter}s short=${repaired.shortBefore}→${repaired.shortAfter}s`,
+    );
+  }
+
+  if (script.total_duration_sec < MIN_LONG_DURATION_SEC - 0.05) {
     throw new Error(
       `Guion largo: ${script.total_duration_sec}s — mínimo ${MIN_LONG_DURATION_SEC}s (2:45)`,
     );
   }
-  if (script.total_duration_sec > MAX_LONG_DURATION_SEC) {
+  if (script.total_duration_sec > MAX_LONG_DURATION_SEC + 0.05) {
     throw new Error(
       `Guion largo: ${script.total_duration_sec}s — máximo ${MAX_LONG_DURATION_SEC}s (5:00)`,
     );
   }
-  if (script.short_total_duration_sec < MIN_SHORT_DURATION_SEC) {
+  if (script.short_total_duration_sec < MIN_SHORT_DURATION_SEC - 0.05) {
     throw new Error(
       `Guion short: ${script.short_total_duration_sec}s — mínimo ${MIN_SHORT_DURATION_SEC}s`,
     );
   }
-  if (script.short_total_duration_sec > MAX_SHORT_DURATION_SEC) {
+  if (script.short_total_duration_sec > MAX_SHORT_DURATION_SEC + 0.05) {
     throw new Error(
       `Guion short: ${script.short_total_duration_sec}s — máximo ${MAX_SHORT_DURATION_SEC}s`,
     );

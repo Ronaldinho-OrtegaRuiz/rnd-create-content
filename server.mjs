@@ -210,7 +210,7 @@ const server = http.createServer(async (req, res) => {
         service: "prueba-video",
         temporary: true,
         description:
-          "Gemini → guion redes: largo 2:45–5:00 (ES+EN) + short 26–34 s objetivo 30 (ES+EN). Transición dissolve.",
+          "Gemini → guion ES+EN. Largo 16:9 + short 9:16. Intro/outro Fractal Voice (typewriter chrome), fractales de fondo, texto blanco IBM Plex Mono.",
         links: {
           generate: `${origin}${PRUEBA_VIDEO_BASE}/generate`,
         },
@@ -248,6 +248,7 @@ const server = http.createServer(async (req, res) => {
         body.preview === "1" ||
         body.preview === "on";
       const includeVideo = body.include_video !== false && body.includeVideo !== false;
+      const includeLofi = body.include_lofi !== false && body.includeLofi !== false;
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
         json(res, 503, { ok: false, error: "Falta GEMINI_API_KEY en el entorno" });
@@ -276,6 +277,7 @@ const server = http.createServer(async (req, res) => {
           preview,
           longDurationSec,
           includeVideo,
+          includeLofi: includeVideo && includeLofi,
           width,
           height,
         });
@@ -749,9 +751,12 @@ server.on("error", (err) => {
 });
 
 server.listen(PORT, () => {
+  server.requestTimeout = 0;
+  server.headersTimeout = 0;
+  server.keepAliveTimeout = 0;
   const origin = `http://localhost:${PORT}`;
   log(`Servidor arriba | ${origin}${BASE}/docs`);
   log(`Panel pruebas | ${origin}${BASE}/create-content`);
   log(`Riseform API | ${origin}${RISEFORM_BASE}/style-photo`);
-  log(`Prueba-video | ${origin}${PRUEBA_VIDEO_BASE}/generate (preview=true ~90s)`);
+  log(`Prueba-video | ${origin}${PRUEBA_VIDEO_BASE}/generate (fractal+texto; puede tardar muchos minutos)`);
 });
