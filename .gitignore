@@ -1,5 +1,18 @@
 # Dependencies
 node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Fractal Voice — muestras y modelos (locales, pesados)
+src/prueba-video/voice/samples/**/*.wav
+src/prueba-video/voice/samples/**/*.mp3
+src/prueba-video/voice/samples/**/*.flac
+src/prueba-video/voice/samples/**/*.m4a
+src/prueba-video/voice/samples/**/*.ogg
+src/prueba-video/voice/datasets/
+src/prueba-video/voice/models/*.pth
+src/prueba-video/voice/models/*.index
 
 # Salida del generador (regenerar con npm run generate-images)
 generated/

@@ -1,0 +1,7 @@
+# Entorno: python -m venv .venv  &&  .venv\Scripts\activate  &&  pip install -r requirements.txt
+piper-tts>=1.2.0
+soundfile>=0.12.1
+numpy>=1.24.0
+
+# Opcional (validación / conversión de formatos; usa ffmpeg del PATH o ffmpeg-static)
+pydub>=0.25.1

@@ -6,6 +6,11 @@
     "generate-images": "node scripts/generate-images.mjs",
     "generate-fractal": "node scripts/generate-fractal-30s.mjs",
     "generate-lofi": "node scripts/generate-lofi-sample.mjs",
+    "voice:setup": "powershell -ExecutionPolicy Bypass -File src/prueba-video/voice/setup.ps1",
+    "voice:check": "node scripts/check-voice-samples.mjs",
+    "voice:prepare": "node scripts/check-voice-samples.mjs --prepare",
+    "voice:train": "powershell -ExecutionPolicy Bypass -File src/prueba-video/voice/train.ps1",
+    "voice:synth": "node scripts/voice-synth.mjs",
     "start": "node server.mjs"
   },
   "dependencies": {

@@ -1,0 +1,56 @@
+═══════════════════════════════════════════════════════════════════
+  FRACTAL VOICE — Guía de grabación para clonación (RVC)
+═══════════════════════════════════════════════════════════════════
+
+OBJETIVO
+  Grabar tu voz real para entrenar un modelo RVC. Con eso, el pipeline
+  podrá narrar los guiones de Gemini con tu timbre.
+
+DÓNDE COLOCAR LOS AUDIOS (cuando termines de grabar)
+  Español:  src/prueba-video/voice/samples/es/
+  Inglés:   src/prueba-video/voice/samples/en/
+
+  Formatos aceptados: .wav .mp3 .flac .m4a .ogg
+  Puedes partir el guion en varios archivos (recomendado: 1 archivo por
+  sección del guion, o 1 solo archivo por idioma).
+
+REQUISITOS MÍNIMOS
+  • 15 minutos de audio limpio por idioma (ideal: 20–25 min)
+  • Mismo micrófono y misma habitación en todas las tomas
+  • Sin música de fondo, sin reverb, sin eco
+  • Sin ruido de ventilador, teclado o calle
+  • Volumen constante; no susurres ni grites
+
+CÓMO GRABAR
+  1. Lee el guion en voz alta, tono calmado, como narrador de documental.
+  2. Velocidad natural (no corras). Pausa 1–2 s donde veas [PAUSA].
+  3. Si te equivocas, para, respira, y repite la frase desde el inicio.
+  4. Guarda cada sección como: es-01-intro.wav, es-02-fractales.wav, etc.
+     (o un solo es-completo.wav — lo que te resulte más cómodo)
+
+GUIONES
+  Español: recording/guion-grabacion-es.txt
+  Inglés:  recording/guion-grabacion-en.txt
+  (Mismo contenido traducido; graba los DOS si quieres vídeos ES y EN.)
+
+DESPUÉS DE GRABAR — EN ORDEN
+  0. Una sola vez: npm run voice:setup   (entorno Python)
+  1. Copia los archivos a samples/es/ y samples/en/
+  2. Desde la raíz del repo:
+       npm run voice:check
+  3. Preparar dataset para RVC:
+       npm run voice:prepare
+  4. Entrenar (Windows + AMD):
+       npm run voice:train
+     (abre RVC WebUI o sigue los pasos que imprime el script)
+
+MODELO ENTRENADO
+  Cuando RVC termine, copia el .pth (y el .index si existe) a:
+    src/prueba-video/voice/models/
+  Renómbralos a: fractal-voice-es.pth  y  fractal-voice-en.pth
+  (o un solo fractal-voice.pth si entrenas un modelo bilingüe)
+
+NOTA SOBRE PARALELIZACIÓN (más adelante)
+  Cuando la voz funcione, el pipeline generará en paralelo: fractales,
+  lofi y narración — justo después del guion de Gemini. Eso se integra
+  en run-prueba-video.mjs cuando el modelo esté listo.

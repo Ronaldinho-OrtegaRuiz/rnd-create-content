@@ -1,0 +1,28 @@
+{
+  "model_name": "fractal-voice",
+  "sample_rate_hz": 44100,
+  "min_total_duration_sec": 900,
+  "recommended_total_duration_sec": 1200,
+  "min_file_duration_sec": 3,
+  "max_file_duration_sec": 600,
+  "samples": {
+    "es": "samples/es",
+    "en": "samples/en"
+  },
+  "datasets": {
+    "es": "datasets/es/raw",
+    "en": "datasets/en/raw"
+  },
+  "models_dir": "models",
+  "rvc": {
+    "sample_rate": "40k",
+    "f0_method": "rmvpe",
+    "version": "v2",
+    "epochs": 200,
+    "batch_size": 6
+  },
+  "piper": {
+    "es": "es_ES-sharvard-medium",
+    "en": "en_US-lessac-medium"
+  }
+}
